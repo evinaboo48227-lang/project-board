@@ -492,7 +492,7 @@ function renderGantt(rows){
   var trackBg = todayBg + ", " + wkBg + ", " + day5Bg + ", " + gridBg;
 
   var tbody = el("tbody");
-  tbody.innerHTML = "";
+  var html = [];
   var colCount = (narrow ? 4 : 5) + total;
 
   rows.forEach(function(p){
@@ -501,10 +501,6 @@ function renderGantt(rows){
     var remain = end ? daysBetween(TODAY, end) : null;
     var dur = (start && end) ? daysBetween(start, end) + 1 : null;
     var stripe = s.key === "red" ? "#9a3b2e" : (s.key === "yellow" ? "#b1791c" : "#3f7a54");
-    var tr = document.createElement("tr");
-    tr.className = "row";
-    tr.setAttribute("data-no", p.no);
-    tr.style.setProperty("--stripe", stripe);
 
     var par = parallelInfo(p);
     var sub = esc(p.cust) + " · " + esc(p.stage)
@@ -541,28 +537,31 @@ function renderGantt(rows){
     } else {
       bar = '<span class="none">未排期（无计划日期）</span>';
     }
-    tr.innerHTML = left + '<td class="track" colspan="' + total + '" style="background-image:' + trackBg + '">' + bar + '</td>';
-    tbody.appendChild(tr);
+    html.push('<tr class="row" data-no="' + p.no + '" style="--stripe:' + stripe + '">' + left +
+      '<td class="track" colspan="' + total + '" style="background-image:' + trackBg + '">' + bar + '</td></tr>');
 
     if(state.selected === p.no){
-      var det = document.createElement("tr");
-      det.className = "detail";
-      det.innerHTML = '<td colspan="' + colCount + '"><div class="dgrid">' + detailFields(p, s) + '</div></td>';
-      tbody.appendChild(det);
+      html.push('<tr class="detail"><td colspan="' + colCount + '"><div class="dgrid">' + detailFields(p, s) + '</div></td></tr>');
     }
   });
 
   el("ganttN").textContent = "共 " + rows.length + " 个项目 / 原表 " + DATA.length + " 条";
   if(!rows.length){
-    var e2 = document.createElement("tr");
-    e2.className = "row";
-    e2.innerHTML = '<td colspan="' + colCount + '"><div class="empty">当前筛选条件下没有项目</div></td>';
-    tbody.appendChild(e2);
+    html.push('<tr class="row"><td colspan="' + colCount + '"><div class="empty">当前筛选条件下没有项目</div></td></tr>');
   }
+  tbody.innerHTML = html.join("");
 }
 
 /* ===== 并行项目统计：同项目经理、时间区间重叠 ===== */
-function parallelInfo(p){
+var PAR_TOK = 0, PAR_CACHE = null;
+function resetParCache(){ PAR_TOK++; PAR_CACHE = new Map(); }
+function parOf(p){
+  if(PAR_CACHE && PAR_CACHE.has(p)) return PAR_CACHE.get(p);
+  var r = computePar(p);
+  if(PAR_CACHE) PAR_CACHE.set(p, r);
+  return r;
+}
+function computePar(p){
   if(!p.start || !p.end) return {count:0, text:"未排期，不参与并行统计", list:[]};
   var s = parseD(p.start), e = parseD(p.end);
   var list = [];
@@ -576,6 +575,7 @@ function parallelInfo(p){
     text:"同期并行 " + list.length + " 个：" + list.map(function(q){ return q.name; }).join("、"),
     list:list};
 }
+function parallelInfo(p){ return parOf(p); }
 
 function detailFields(p, s){
   var f = [
@@ -1019,6 +1019,7 @@ function hideTip(){ el("tip").hidden = true; }
 
 /* ===== 主渲染 ===== */
 function render(){
+  resetParCache();
   var rows = filtered();
   renderGantt(rows);
   renderFull(rows);
