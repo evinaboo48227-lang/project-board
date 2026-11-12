@@ -86,6 +86,7 @@ td.c1::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
 .num{text-align:right; font-variant-numeric:tabular-nums;}
 td.c2{font-weight:500;}
 td.c2 .sub{display:block; font-weight:400; font-size:10px; color:var(--ink-3); line-height:1.2;}
+td.c2 .sub .par{color:#8a5a12; background:#fbf1ce; padding:0 3px; border-radius:2px;}
 .pill{display:inline-block; padding:1px 6px; border-radius:2px; font-size:10px; line-height:1.6; white-space:nowrap;}
 .pill.red{background:var(--h-red); color:#8a2d21;}
 .pill.yellow{background:var(--h-yellow); color:#8a5c0c;}
@@ -116,6 +117,16 @@ tbody tr.detail td{background:#f7f5ef; border-bottom:1px solid var(--line); padd
 #tip .rowk{display:flex; gap:8px;}
 #tip .rowk span{color:#8fa3a6; min-width:44px;}
 
+table.full td.op,table.full th.op{background:#fff;}
+table.full thead th.op{background:#2b3941;}
+table.full tr.h-red td.op{background:var(--h-red);} table.full tr.h-yellow td.op{background:var(--h-yellow);}
+table.full tr.h-green td.op{background:var(--h-green);}
+.op-cell{display:flex; gap:4px;}
+.mini{font:inherit; font-size:11px; padding:2px 6px; border:1px solid var(--line-2); background:#fff;
+  border-radius:2px; cursor:pointer; color:var(--ink-2); white-space:nowrap;}
+.mini:hover{background:#eceae4;}
+.mini.del:hover{border-color:#c78d80; color:#8a2d21; background:#fbeeeb;}
+
 table.full{border-collapse:collapse; table-layout:fixed;}
 table.full th,table.full td{border:1px solid #e2ded4; padding:5px 7px; font-size:12px; line-height:1.45;
   vertical-align:middle; white-space:normal; word-break:break-word;}
@@ -130,6 +141,27 @@ table.full td.nowrap{white-space:nowrap;}
 .notes{margin:14px 20px 30px; font-size:11px; color:var(--ink-3); line-height:1.9;}
 .notes b{color:var(--ink-2); font-weight:600;}
 .empty{padding:24px; text-align:center; color:var(--ink-3); font-size:12px;}
+
+#modal{position:fixed; inset:0; background:#161d2255; z-index:98; display:flex; align-items:center; justify-content:center; padding:16px;}
+#modal[hidden]{display:none;}
+.modal-card{background:#fff; border-radius:4px; width:min(860px,100%); max-height:90vh; display:flex; flex-direction:column;
+  box-shadow:0 18px 48px #0000003d;}
+.modal-hd{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line);}
+.modal-hd h3{margin:0; font-size:14px; font-weight:600;}
+.modal-hd .sub{font-size:11px; color:var(--ink-3); flex:1;}
+.modal-bd{overflow:auto; padding:14px 16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:10px 14px;}
+.modal-bd .f{display:flex; flex-direction:column; gap:3px; min-width:0;}
+.modal-bd .f label{font-size:11px; color:var(--ink-3);}
+.modal-bd .f input,.modal-bd .f select,.modal-bd .f textarea{
+  font:inherit; font-size:12px; padding:5px 7px; border:1px solid var(--line-2); border-radius:2px; background:#fff; width:100%;}
+.modal-bd .f textarea{min-height:52px; resize:vertical;}
+.modal-bd .f.wide{grid-column:1/-1;}
+.modal-ft{display:flex; align-items:center; gap:8px; padding:12px 16px; border-top:1px solid var(--line);}
+.modal-ft .spacer{flex:1;}
+.btn.danger{background:#8a2d21; border-color:#8a2d21; color:#fff;}
+.btn.danger:hover{background:#a03828;}
+.msg{font-size:11px; color:var(--ink-3); margin-right:auto;}
+.chip{display:inline-block; font-size:10px; padding:1px 6px; border-radius:2px; background:#e8efe9; color:#2c5f3f;}
 
 @media (max-width:900px){
   :root{--c1:32px; --c2:150px; --c3:42px; --c4:90px;
@@ -180,6 +212,9 @@ table.full td.nowrap{white-space:nowrap;}
       <button class="btn ghost" id="todayBtn">回到今天</button>
       <label class="switch"><input type="checkbox" id="autoHealth">按日期规则重算状态</label>
       <button class="btn" id="exportBtn">导出 Excel（带颜色）</button>
+      <button class="btn ghost" id="addBtn">＋ 新增项目</button>
+      <button class="btn ghost" id="resetBtn">还原原表</button>
+      <span class="msg" id="editHint"></span>
     </div>
     <div class="legend">
       <span class="k"><i class="sw" style="background:var(--bar)"></i>计划工期</span>
@@ -199,7 +234,7 @@ table.full td.nowrap{white-space:nowrap;}
   <div class="panel-hd">
     <h2>全字段明细</h2>
     <span class="n" id="fullN"></span>
-    <span class="hint">23 列与原表一致，行底色 = 健康状态</span>
+    <span class="hint">23 列与原表一致 + 操作列，行底色 = 健康状态</span>
   </div>
   <div class="panel-bd" style="padding:0;">
     <div class="scroller" style="border-top:0;">
@@ -209,12 +244,30 @@ table.full td.nowrap{white-space:nowrap;}
 </section>
 
 <div class="notes">
+  <div><b>并行项目</b>：自动计算——同一项目经理、且项目起止区间与本人重叠的其他项目数量，明细列与甘特征标同步；无计划日期不参与统计。修改/删除只保存在本机浏览器（他人看到的仍是原表），要全员同步请导出 Excel 或把改动发给管理员更新线上版本。</div>
   <div><b>数据口径</b>：内容按全项目部项目跟踪总览表逐格录入，健康状态默认沿用原表标记；勾选「按日期规则重算状态」后改为自动判定——无计划完成日期判绿，距完成 ≤3 天且进度 &lt;100% 判红，≤7 天判黄，其余判绿，已过期为红。</div>
   <div><b>导出的 Excel</b>：导出为带底色的 .xls 快照（Excel / WPS 可直接打开），只含项目明细，不含甘特图。</div>
   <div><b>遮档说明</b>：原表中「主要风险/卡点」第 1 行有一段被行高遮挡、日期列（立项会 / 设计评审 / 试产准备会）全为空，已按可见内容录入。</div>
 </div>
 
 <div id="tip" hidden></div>
+
+<div id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="modal-hd">
+      <h3 id="mTitle">编辑项目</h3>
+      <span class="sub" id="mSub"></span>
+      <button class="mini" id="mX">关闭</button>
+    </div>
+    <div class="modal-bd" id="mBody"></div>
+    <div class="modal-ft">
+      <span class="msg">改动保存在本浏览器；要同步给所有人，导出 Excel 或把数据发我更新线上版本。</span>
+      <button class="btn danger" id="mDel">删除这条</button>
+      <button class="btn ghost" id="mCancel">取消</button>
+      <button class="btn" id="mSave">保存</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ===== 数据：全项目部项目跟踪总览（10 条，字段与原表一致） ===== */
@@ -424,13 +477,16 @@ function renderGantt(rows){
     tr.setAttribute("data-no", p.no);
     tr.style.setProperty("--stripe", stripe);
 
-    var sub = p.cust + " · " + p.stage + (narrow && remain != null ? " · " + (remain < 0 ? "逾期" + (-remain) + "天" : "剩" + remain + "天") : "");
+    var par = parallelInfo(p);
+    var sub = esc(p.cust) + " · " + esc(p.stage)
+      + (par.count ? ' · <span class="par">同期并行 ' + par.count + '</span>' : "")
+      + (narrow && remain != null ? " · " + (remain < 0 ? "逾期" + (-remain) + "天" : "剩" + remain + "天") : "");
     var remainCell = remain == null ? "未排期" : (remain < 0 ? "逾期 " + (-remain) + " 天" : "剩 " + remain + " 天");
     var durCell = dur == null ? "—" : dur + " 天";
 
     var left =
       '<td class="c1 stick num" style="width:' + W.c1 + 'px">' + p.no + '</td>' +
-      '<td class="c2 stick" style="width:' + W.c2 + 'px">' + esc(p.name) + '<span class="sub">' + esc(sub) + '</span></td>' +
+      '<td class="c2 stick" style="width:' + W.c2 + 'px">' + esc(p.name) + '<span class="sub">' + sub + '</span></td>' +
       '<td class="c3 stick" style="width:' + W.c3 + 'px">' + (p.pri ? '<span class="pri ' + p.pri + '">' + p.pri + '</span>' : '<span class="pri none">—</span>') + '</td>' +
       '<td class="c4 stick" style="width:' + W.c4 + 'px"><span class="pill ' + s.key + '">' + esc(s.label) + '</span></td>' +
       (narrow ? "" :
@@ -473,6 +529,22 @@ function renderGantt(rows){
   }
 }
 
+/* ===== 并行项目统计：同项目经理、时间区间重叠 ===== */
+function parallelInfo(p){
+  if(!p.start || !p.end) return {count:0, text:"未排期，不参与并行统计", list:[]};
+  var s = parseD(p.start), e = parseD(p.end);
+  var list = [];
+  DATA.forEach(function(q){
+    if(q === p || !q.start || !q.end || q.pm !== p.pm) return;
+    var qs = parseD(q.start), qe = parseD(q.end);
+    if(qs <= e && qe >= s) list.push(q);
+  });
+  if(!list.length) return {count:0, text:"无同期并行项目", list:[]};
+  return {count:list.length,
+    text:"同期并行 " + list.length + " 个：" + list.map(function(q){ return q.name; }).join("、"),
+    list:list};
+}
+
 function detailFields(p, s){
   var f = [
     ["项目编号", p.code], ["项目名称", p.name], ["客户", p.cust], ["产品/机型", p.model],
@@ -481,11 +553,13 @@ function detailFields(p, s){
     ["立项会时间", p.kickoff || "—"], ["设计评审时间", p.review || "—"], ["试产准备会时间", p.trial || "—"],
     ["当前进度", p.prog == null ? "未填" : p.prog + "%"], ["健康状态", s.label],
     ["主要风险/卡点", p.risk || "—"], ["下一步关键节点", p.next || "—"], ["追办事项", p.follow || "—"],
-    ["追办事项预计完成日期", p.followDate || "—"], ["并行项目/同负责人在途项目", p.parallel || "—"], ["备注", p.note || "—"]
+    ["追办事项预计完成日期", p.followDate || "—"], ["并行项目/同负责人在途项目", parallelInfo(p).text], ["备注", p.note || "—"]
   ];
-  var html = "";
-  f.forEach(function(kv, i){
-    var wide = (kv[0].indexOf("风险") >= 0 || kv[0].indexOf("下一步") >= 0 || kv[0].indexOf("追办事项") === 0);
+  var html = '<div class="f wide det-ops"><div class="k">操作</div><div class="v">' +
+    '<button class="mini" data-edit="' + esc(p.code || String(p.no)) + '">修改</button> ' +
+    '<button class="mini del" data-del="' + esc(p.code || String(p.no)) + '">删除</button></div></div>';
+  f.forEach(function(kv){
+    var wide = (kv[0].indexOf("风险") >= 0 || kv[0].indexOf("下一步") >= 0 || kv[0].indexOf("追办事项") === 0 || kv[0].indexOf("并行") >= 0);
     html += '<div class="f' + (wide ? ' wide' : '') + '"><div class="k">' + kv[0] + '</div><div class="v">' + esc(kv[1]) + '</div></div>';
   });
   return html;
@@ -502,26 +576,29 @@ var FULL_COLS = [
 function fullWidth(){ return FULL_COLS.reduce(function(a,c){ return a + c[1]; }, 0); }
 function renderFull(rows){
   var thead = '<tr>' + FULL_COLS.map(function(c, i){
-    var cls = i === 0 ? 'c1' : (i === 1 ? 'c2' : '');
-    var stick = i === 0 ? ' style="left:0;width:' + c[1] + 'px"' : (i === 1 ? ' style="left:' + FULL_COLS[0][1] + 'px;width:' + c[1] + 'px"' : ' style="width:' + c[1] + 'px"');
-    return '<th class="' + cls + '"' + stick + '>' + c[0] + '</th>';
-  }).join("") + '</tr>';
+    return '<th style="width:' + c[1] + 'px">' + c[0] + '</th>';
+  }).join("") + '<th class="op" style="width:96px">操作</th></tr>';
   var body = rows.map(function(p){
     var s = statusOf(p, state.auto);
+    var par = parallelInfo(p);
     var cells = [p.no, p.code, p.name, p.cust, p.model, p.mode, p.biz, p.pm, p.stage, p.pri || "—",
       p.start || "—", p.end || "—", p.kickoff || "—", p.review || "—", p.trial || "—",
       p.prog == null ? "—" : p.prog + "%", s.label, p.risk || "—", p.next || "—", p.follow || "—",
-      p.followDate || "—", p.parallel || "—", p.note || "—"];
-    return '<tr class="h-' + s.key + '">' + cells.map(function(v, i){
-      var cls = i === 0 ? 'c1 nowrap' : (i === 1 ? 'c2 nowrap' : (i >= 10 && i <= 14 ? 'nowrap' : ''));
-      var stick = i === 0 ? ' style="left:0;width:' + FULL_COLS[0][1] + 'px"' : (i === 1 ? ' style="left:' + FULL_COLS[0][1] + 'px;width:' + FULL_COLS[1][1] + 'px"' : ' style="width:' + FULL_COLS[i][1] + 'px"');
-      return '<td class="' + cls + '"' + stick + '>' + esc(dash(v)) + '</td>';
-    }).join("") + '</tr>';
+      p.followDate || "—", par.text, p.note || "—"];
+    return '<tr class="h-' + s.key + '">' +
+      cells.map(function(v, i){
+        var cls = (i <= 1 || (i >= 10 && i <= 14)) ? 'nowrap' : '';
+        return '<td class="' + cls + '" style="width:' + FULL_COLS[i][1] + 'px">' + esc(dash(v)) + '</td>';
+      }).join("") +
+      '<td class="op"><span class="op-cell">' +
+        '<button class="mini" data-edit="' + esc(p.code || String(p.no)) + '">修改</button>' +
+        '<button class="mini del" data-del="' + esc(p.code || String(p.no)) + '">删除</button>' +
+      '</span></td></tr>';
   }).join("");
   var t = el("fullTable");
   t.querySelector("thead").innerHTML = thead;
   t.querySelector("tbody").innerHTML = body;
-  t.style.width = fullWidth() + "px";
+  t.style.width = (fullWidth() + 96) + "px";
   el("fullN").textContent = "共 " + rows.length + " 条";
 }
 
@@ -563,6 +640,157 @@ function uniq(key, fallback){
   return arr.sort(function(a,b){ return a.localeCompare(b, "zh"); });
 }
 
+function refreshSelects(){
+  fillSelect("fCust", uniq("cust"), "全部客户", state.cust);
+  fillSelect("fPm", uniq("pm"), "全部项目经理", state.pm);
+  fillSelect("fStage", uniq("stage"), "全部阶段", state.stage);
+  fillSelect("fPri", uniq("pri"), "全部层级", state.pri);
+  [["fCust","cust"],["fPm","pm"],["fStage","stage"],["fPri","pri"]].forEach(function(kv){
+    if(!el(kv[0]).value) state[kv[1]] = "";
+  });
+}
+
+/* ===== 本地存储 ===== */
+var KEY = "pt-board-data-v1";
+var ORIGINAL = null;
+function saveData(){
+  try{ localStorage.setItem(KEY, JSON.stringify(DATA)); }catch(e){}
+  updateEditHint();
+}
+function loadData(){
+  ORIGINAL = JSON.parse(JSON.stringify(DATA));
+  try{
+    var raw = localStorage.getItem(KEY);
+    if(raw){
+      var arr = JSON.parse(raw);
+      if(Array.isArray(arr) && arr.length) DATA = arr;
+    }
+  }catch(e){}
+  updateEditHint();
+}
+function updateEditHint(){
+  var has = false;
+  try{ has = !!localStorage.getItem(KEY); }catch(e){}
+  var h = el("editHint");
+  if(h) h.textContent = has ? "本机已改动 · " + DATA.length + " 条（他人看到的是原表）" : "";
+}
+
+/* ===== 编辑 / 删除 ===== */
+var editing = null;
+var STAGE_LIST = ["立项","技术交流","项目评估","方案评估","设计评审","设计开发","物料提拉","样机试制",
+  "小批量试产","客户审核","量产","已结案","暂停/取消","报价"];
+var FIELDS = [
+  {k:"code", l:"项目编号", t:"text"},
+  {k:"name", l:"项目名称", t:"text"},
+  {k:"cust", l:"客户", t:"text"},
+  {k:"model", l:"产品/机型", t:"text"},
+  {k:"mode", l:"自研/代工", t:"select", o:["自研","代工"]},
+  {k:"biz", l:"业务", t:"text"},
+  {k:"pm", l:"项目经理", t:"text"},
+  {k:"stage", l:"项目阶段", t:"select"},
+  {k:"pri", l:"优先级", t:"select", o:["S","A","B"]},
+  {k:"start", l:"开始日期", t:"date"},
+  {k:"end", l:"计划完成日期", t:"date"},
+  {k:"kickoff", l:"立项会时间", t:"date"},
+  {k:"review", l:"设计评审时间", t:"date"},
+  {k:"trial", l:"试产准备会时间", t:"date"},
+  {k:"prog", l:"当前进度（%）", t:"number"},
+  {k:"health", l:"健康状态", t:"select", o:["红预警","黄关注","绿正常"]},
+  {k:"risk", l:"主要风险/卡点", t:"textarea", wide:true},
+  {k:"next", l:"下一步关键节点", t:"textarea", wide:true},
+  {k:"follow", l:"追办事项", t:"textarea"},
+  {k:"followDate", l:"追办预计完成日期", t:"date"},
+  {k:"note", l:"备注", t:"text"}
+];
+function stageOptions(){
+  var arr = uniq("stage");
+  STAGE_LIST.forEach(function(s){ if(arr.indexOf(s) < 0) arr.push(s); });
+  return arr;
+}
+function fieldsHtml(p){
+  return FIELDS.map(function(f){
+    var v = p && p[f.k] != null ? String(p[f.k]) : "";
+    var opts;
+    if(f.t === "select"){
+      opts = f.k === "stage" ? stageOptions() : f.o;
+      var list = opts.slice();
+      if(v && list.indexOf(v) < 0) list.unshift(v);
+      return '<div class="f' + (f.wide ? ' wide' : '') + '"><label>' + f.l + '</label>' +
+        '<select data-k="' + f.k + '"><option value="">—</option>' + list.map(function(o){
+          return '<option value="' + esc(o) + '"' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>';
+        }).join("") + '</select></div>';
+    }
+    if(f.t === "textarea"){
+      return '<div class="f wide"><label>' + f.l + '</label><textarea data-k="' + f.k + '">' + esc(v) + '</textarea></div>';
+    }
+    if(f.t === "date"){
+      return '<div class="f"><label>' + f.l + '</label><input type="date" data-k="' + f.k + '" value="' + esc(v) + '"></div>';
+    }
+    return '<div class="f' + (f.wide ? ' wide' : '') + '"><label>' + f.l + '</label>' +
+      '<input type="' + (f.t === "number" ? "number" : "text") + '" data-k="' + f.k + '" value="' + esc(v) + '"' +
+      (f.t === "number" ? ' min="0" max="100" step="1"' : '') + '></div>';
+  }).join("");
+}
+function openEditor(p){
+  editing = p || null;
+  el("mTitle").textContent = p ? "修改项目" : "新增项目";
+  el("mSub").textContent = p ? (p.code + " · " + p.name) : "保存后进入明细与甘特";
+  el("mDel").hidden = !p;
+  el("mBody").innerHTML = fieldsHtml(p);
+  el("modal").hidden = false;
+  var first = el("mBody").querySelector("input,select,textarea");
+  if(first) first.focus();
+}
+function closeEditor(){ el("modal").hidden = true; editing = null; }
+function saveEditor(){
+  var vals = {};
+  el("mBody").querySelectorAll("[data-k]").forEach(function(inp){
+    var k = inp.getAttribute("data-k"), v = inp.value.trim();
+    if(k === "prog"){ v = v === "" ? null : Math.max(0, Math.min(100, parseInt(v, 10))); }
+    else if(!v) v = "";
+    vals[k] = v;
+  });
+  if(!vals.code && !vals.name){ alert("项目编号和项目名称至少填一个"); return; }
+  if(editing){
+    Object.keys(vals).forEach(function(k){ editing[k] = vals[k]; });
+  }else{
+    var maxNo = DATA.reduce(function(m, p){ return Math.max(m, p.no || 0); }, 0);
+    vals.no = maxNo + 1;
+    vals.parallel = "";
+    DATA.push(vals);
+  }
+  closeEditor();
+  saveData();
+  refreshSelects();
+  buildRange();
+  render();
+  updateViewHint();
+}
+function deleteRow(p){
+  if(!p) return;
+  if(!confirm("确认删除「" + (p.name || p.code) + "」？删除后仅本机生效。")) return;
+  DATA = DATA.filter(function(q){ return q !== p; });
+  closeEditor();
+  saveData();
+  refreshSelects();
+  buildRange();
+  render();
+  updateViewHint();
+}
+function findRow(key){
+  return DATA.filter(function(p){ return (p.code || String(p.no)) === key; })[0];
+}
+function resetData(){
+  if(!confirm("还原为最初录入的原表数据？本机改动会清空。")) return;
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  if(ORIGINAL) DATA = JSON.parse(JSON.stringify(ORIGINAL));
+  refreshSelects();
+  state.cust = state.pm = state.stage = state.pri = "";
+  buildRange();
+  render();
+  updateViewHint();
+}
+
 /* ===== 导出（HTML 版 .xls，带底色） ===== */
 function exportExcel(){
   var rows = filtered();
@@ -572,7 +800,7 @@ function exportExcel(){
     var s = statusOf(p, state.auto);
     var vals = [p.no, p.code, p.name, p.cust, p.model, p.mode, p.biz, p.pm, p.stage, p.pri || "",
       p.start, p.end, p.kickoff, p.review, p.trial, p.prog == null ? "" : p.prog + "%", s.label,
-      p.risk, p.next, p.follow, p.followDate, p.parallel, p.note];
+      p.risk, p.next, p.follow, p.followDate, parallelInfo(p).text, p.note];
     return '<tr>' + vals.map(function(v, i){
       var style = "background:" + fill[s.key] + ";border:1px solid #BFBFBF;padding:4px 6px;vertical-align:middle";
       if(i === 2 || i === 17 || i === 18) style += ";mso-number-format:'\\@';white-space:normal";
@@ -628,13 +856,11 @@ function render(){
 }
 
 function init(){
+  loadData();
   buildRange();
   el("todayLbl").textContent = TODAY.getFullYear() + " 年 " + fmtMD(TODAY);
   el("rangeLbl").textContent = fmtISO(range.from) + " → " + fmtISO(range.to) + "（" + range.days + " 天）";
-  fillSelect("fCust", uniq("cust"), "全部客户", state.cust);
-  fillSelect("fPm", uniq("pm"), "全部项目经理", state.pm);
-  fillSelect("fStage", uniq("stage"), "全部阶段", state.stage);
-  fillSelect("fPri", uniq("pri"), "全部层级", state.pri);
+  refreshSelects();
   fillSelect("fHealth", ["red","yellow","green"], "全部状态", state.health);
   el("fHealth").querySelectorAll("option").forEach(function(o){
     if(o.value === "red") o.textContent = "红预警";
@@ -668,8 +894,29 @@ el("todayBtn").addEventListener("click", function(){
   state.selected = null; render(); scrollToToday(true);
 });
 el("exportBtn").addEventListener("click", exportExcel);
+el("addBtn").addEventListener("click", function(){ openEditor(null); });
+el("resetBtn").addEventListener("click", resetData);
+el("mSave").addEventListener("click", saveEditor);
+el("mCancel").addEventListener("click", closeEditor);
+el("mX").addEventListener("click", closeEditor);
+el("mDel").addEventListener("click", function(){ deleteRow(editing); });
+el("modal").addEventListener("click", function(e){ if(e.target === el("modal")) closeEditor(); });
+document.addEventListener("keydown", function(e){
+  if(e.key === "Escape" && !el("modal").hidden) closeEditor();
+  if(e.key === "Enter" && !el("modal").hidden && e.target.tagName !== "TEXTAREA" && e.target.id !== "mSave") saveEditor();
+});
+el("fullTable").addEventListener("click", function(e){
+  var ed = e.target.closest("[data-edit]");
+  if(ed){ openEditor(findRow(ed.getAttribute("data-edit"))); return; }
+  var dl = e.target.closest("[data-del]");
+  if(dl){ deleteRow(findRow(dl.getAttribute("data-del"))); }
+});
 
 el("tbody").addEventListener("click", function(e){
+  var ed = e.target.closest("[data-edit]");
+  if(ed){ e.stopPropagation(); openEditor(findRow(ed.getAttribute("data-edit"))); return; }
+  var dl = e.target.closest("[data-del]");
+  if(dl){ e.stopPropagation(); deleteRow(findRow(dl.getAttribute("data-del"))); return; }
   var bar = e.target.closest(".bar");
   if(bar){ e.stopPropagation(); return; }
   var tr = e.target.closest("tr.row");
