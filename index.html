@@ -10,6 +10,7 @@
   --paper:#f1efe9; --panel:#fbfaf7; --ink:#161d22; --ink-2:#3d474d; --ink-3:#77838a;
   --line:#ddd8cf; --line-2:#cfc9be;
   --bar:#2a7a76; --bar-past:#1f5f5c; --late:#9a3b2e; --amber:#b1791c; --green:#3f7a54;
+  --bar-light:#b8d3d1; --late-light:#ecd4cf;
   --h-red:#f7dfdc; --h-yellow:#fbf1ce; --h-green:#ddefe2;
   --c1:44px; --c2:236px; --c3:56px; --c4:94px; --c5:74px;
   --l2:44px; --l3:280px; --l4:336px; --l5:430px;
@@ -70,9 +71,12 @@ table.board thead th.stick{top:0; z-index:40; background:#1b262e;}
 th.c1{left:0;} th.c2{left:var(--l2);} th.c3{left:var(--l3);} th.c4{left:var(--l4);} th.c5{left:var(--l5);}
 thead th.month{background:#1e2a36; top:0; z-index:22; text-align:left; padding-left:7px; font-size:10px;
   letter-spacing:.06em; font-weight:600; color:#dfe8e6;}
-thead th.tick{background:#243240; top:var(--head1); height:var(--head2); font-size:9px; color:#8fa2a5;
-  text-align:center; padding:0; font-variant-numeric:tabular-nums; border-left:1px solid #2f414c;}
-thead th.tick.m5{border-left:1px solid #4a5f6a; color:#cfdcda;}
+thead th.tick{background:#243240; top:var(--head1); height:var(--head2); font-size:9px; color:#b9c8c9;
+  text-align:center; padding:0; white-space:nowrap; font-variant-numeric:tabular-nums; border-left:1px solid #2f414c;
+  overflow:visible;}
+thead th.tick.m5{border-left:1px solid #56707c; color:#eaf2f0; font-weight:600;}
+thead th.tick.first{color:#eaf2f0; font-weight:700;}
+thead th.tick.long{font-size:8px; letter-spacing:-0.4px;}
 thead th.tick.today{background:#8b2016; color:#fff; font-weight:700;}
 
 tbody tr.row td{height:var(--rowh); border-bottom:1px solid #e5e1d8; padding:0 8px; font-size:12px;
@@ -99,9 +103,10 @@ tr.row.over td.c6{color:var(--late); font-weight:600;}
 
 td.track{position:relative; z-index:0; overflow:hidden; padding:0 !important; border-left:1px solid var(--line-2);}
 td.track .bar{position:absolute; top:calc((var(--rowh) - 14px)/2); height:14px; border-radius:2px;
-  background:var(--bar); cursor:pointer; box-shadow:0 0 0 1px #0000000f inset;}
-td.track .bar.late{background:var(--late);}
-td.track .bar .prog{position:absolute; left:0; top:0; bottom:0; background:#ffffff44; border-radius:2px 0 0 2px;}
+  background:#fffdfa; cursor:pointer; box-shadow:inset 0 0 0 1px #cdc6b9;}
+td.track .bar.late{background:#fffdfa; box-shadow:inset 0 0 0 1px #c9a49d;}
+td.track .bar .prog{position:absolute; left:0; top:0; bottom:0; background:var(--bar); border-radius:2px 0 0 2px;}
+td.track .bar.late .prog{background:var(--late);}
 td.track .none{position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:11px;
   color:var(--ink-3); font-style:italic;}
 tbody tr.detail td{background:#f7f5ef; border-bottom:1px solid var(--line); padding:12px 16px;}
@@ -204,10 +209,12 @@ table.full td.nowrap{white-space:nowrap;}
       <div class="field"><label>阶段</label><select id="fStage"></select></div>
       <div class="field"><label>优先级</label><select id="fPri"></select></div>
       <div class="field"><label>状态</label><select id="fHealth"></select></div>
+      <div class="field"><label>年份</label><select id="fYear"></select></div>
+      <div class="field"><label>月份</label><select id="fMonth"></select></div>
       <div class="field"><label>搜索</label><input type="text" id="q" placeholder="项目 / 编号 / 客户 / 责任人"></div>
       <div class="field"><label>缩放</label><select id="zoomSel">
-        <option value="8">紧凑</option><option value="10" selected>标准</option>
-        <option value="14">宽松</option><option value="20">宽松 ×2</option>
+        <option value="8">紧凑</option><option value="12">标准</option>
+        <option value="20" selected>舒适</option><option value="28">放大</option>
       </select></div>
       <button class="btn ghost" id="todayBtn">回到今天</button>
       <label class="switch"><input type="checkbox" id="autoHealth">按日期规则重算状态</label>
@@ -217,12 +224,12 @@ table.full td.nowrap{white-space:nowrap;}
       <span class="msg" id="editHint"></span>
     </div>
     <div class="legend">
-      <span class="k"><i class="sw" style="background:var(--bar)"></i>计划工期</span>
-      <span class="k"><i class="sw" style="background:#8fb9b6"></i>已完成进度</span>
-      <span class="k"><i class="sw" style="background:var(--late)"></i>逾期未完成</span>
+      <span class="k"><i class="sw" style="background:#bdd6d3"></i>未完成（浅）</span>
+      <span class="k"><i class="sw" style="background:var(--bar)"></i>已完成进度（深）</span>
+      <span class="k"><i class="sw" style="background:var(--late-light)"></i>逾期未完成</span>
       <span class="k"><i class="sw" style="background:#ece9e2"></i>周末</span>
       <span class="k"><i class="sw" style="background:#8b2016"></i>今天</span>
-      <span class="k">日期表头每 5 天标一次，竖线为今天</span>
+      <span class="k">表头逐日标日号，每月 1 号标“月/1”，红线为今天</span>
     </div>
     <div class="scroller" id="scroller">
       <table class="board" id="board"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
@@ -356,10 +363,24 @@ function statusOf(p, auto){
 }
 
 /* ===== 状态 ===== */
-var state = { cust:"", pm:"", stage:"", pri:"", health:"", q:"", zoom:10, selected:null, auto:false };
+var state = { cust:"", pm:"", stage:"", pri:"", health:"", year:"", month:"", q:"", zoom:20, selected:null, auto:false };
 var range = {from:null, to:null, days:0};
 
 function buildRange(){
+  /* 指定年份 / 月份时，时间轴与筛选范围跟着走 */
+  if(state.year || state.month){
+    var yy = state.year ? +state.year : (state.month ? TODAY.getFullYear() : TODAY.getFullYear());
+    var from0, to0;
+    if(state.month){
+      from0 = new Date(yy, (+state.month) - 1, 1);
+      to0 = new Date(yy, (+state.month), 0);
+    }else{
+      from0 = new Date(yy, 0, 1);
+      to0 = new Date(yy, 11, 31);
+    }
+    range = {from:from0, to:to0, days: daysBetween(from0, to0) + 1};
+    return;
+  }
   var minD = null, maxD = null;
   DATA.forEach(function(p){
     var s = parseD(p.start), e = parseD(p.end);
@@ -386,6 +407,11 @@ function filtered(){
     if(state.health){
       var s = statusOf(p, state.auto);
       if(s.key !== state.health) return false;
+    }
+    if(state.year || state.month){
+      if(!p.start || !p.end) return false;
+      var ps = parseD(p.start), pe = parseD(p.end);
+      if(pe < range.from || ps > range.to) return false;
     }
     if(q){
       var hay = (p.name + p.code + p.cust + p.biz + p.pm + p.model + p.stage + p.risk + p.next).toLowerCase();
@@ -426,11 +452,13 @@ function renderGantt(rows){
   for(var i=0;i<total;i++){
     var d = addDays(range.from, i);
     var isToday = d.getTime() === TODAY.getTime();
-    var is5 = d.getDate() % 5 === 0;
-    var is1 = d.getDate() === 1;
-    var showNum = is1 || (d.getDate() % 5 === 0 && z >= 14);
-    dayRow += '<th class="tick' + ((is5 || is1) ? ' m5' : '') + (isToday ? ' today' : '') + '" style="width:' + z + 'px">' +
-      (showNum ? d.getDate() : "") + '</th>';
+    var is5 = (i % 5 === 0);
+    var isFirst = (d.getDate() === 1);
+    var lbl, longl = false;
+    if(isFirst && z >= 18) { lbl = (d.getMonth() + 1) + "/1"; longl = true; }
+    else lbl = String(d.getDate());
+    var cls = "tick" + (is5 ? " m5" : "") + (isFirst ? " first" : "") + (isToday ? " today" : "") + (longl ? " long" : "");
+    dayRow += '<th class="' + cls + '" style="width:' + z + 'px" title="' + fmtISO(d) + '">' + lbl + '</th>';
     if(d.getMonth() !== curM){
       if(run) monthRow += '<th class="month" colspan="' + run + '" style="width:' + (run*z) + 'px">' + (curM+1) + ' 月</th>';
       curM = d.getMonth(); run = 0;
@@ -502,8 +530,9 @@ function renderGantt(rows){
       if(len > 0){
         var late = (remain != null && remain < 0 && (p.prog == null || p.prog < 100));
         var progW = (p.prog != null) ? Math.round(len*z * Math.min(p.prog,100) / 100) : 0;
+        var dark = late ? "#9a3b2e" : (s.key === "yellow" ? "#b1791c" : (s.key === "red" ? "#9a3b2e" : "#2a7a76"));
         bar = '<div class="bar' + (late ? ' late' : '') + '" style="left:' + (off*z) + 'px;width:' + Math.max(len*z, 4) + 'px" data-no="' + p.no + '">' +
-              (progW > 0 && !late ? '<div class="prog" style="width:' + progW + 'px"></div>' : '') +
+              (progW > 0 ? '<div class="prog" style="width:' + progW + 'px;background:' + dark + '"></div>' : '') +
               '</div>';
       }
     } else {
@@ -648,6 +677,32 @@ function refreshSelects(){
   [["fCust","cust"],["fPm","pm"],["fStage","stage"],["fPri","pri"]].forEach(function(kv){
     if(!el(kv[0]).value) state[kv[1]] = "";
   });
+  fillYearMonth();
+}
+function fillYearMonth(){
+  var ys = [];
+  DATA.forEach(function(p){
+    [p.start, p.end].forEach(function(v){
+      if(v){ var y = +String(v).slice(0, 4); if(y && ys.indexOf(y) < 0) ys.push(y); }
+    });
+  });
+  if(ys.indexOf(TODAY.getFullYear()) < 0) ys.push(TODAY.getFullYear());
+  var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+  var END_Y = 2029;
+  if(maxY < END_Y) maxY = END_Y;
+  ys = [];
+  for(var y0 = minY; y0 <= maxY; y0++) ys.push(y0);
+  ys.sort();
+  var selY = el("fYear");
+  selY.innerHTML = '<option value="">全部年份</option>' + ys.map(function(y){
+    return '<option value="' + y + '">' + y + ' 年</option>';
+  }).join("");
+  if(state.year && ys.indexOf(+state.year) < 0) state.year = "";
+  selY.value = state.year || "";
+  var selM = el("fMonth"), opts = '<option value="">全部月份</option>';
+  for(var m = 1; m <= 12; m++) opts += '<option value="' + m + '">' + m + ' 月</option>';
+  selM.innerHTML = opts;
+  selM.value = state.month || "";
 }
 
 /* ===== 本地存储 ===== */
@@ -784,8 +839,8 @@ function resetData(){
   if(!confirm("还原为最初录入的原表数据？本机改动会清空。")) return;
   try{ localStorage.removeItem(KEY); }catch(e){}
   if(ORIGINAL) DATA = JSON.parse(JSON.stringify(ORIGINAL));
+  state.cust = state.pm = state.stage = state.pri = state.year = state.month = "";
   refreshSelects();
-  state.cust = state.pm = state.stage = state.pri = "";
   buildRange();
   render();
   updateViewHint();
@@ -853,6 +908,7 @@ function render(){
   renderFull(rows);
   renderTally(rows);
   el("countLbl").textContent = rows.length;
+  el("rangeLbl").textContent = fmtISO(range.from) + " → " + fmtISO(range.to) + "（" + range.days + " 天）";
 }
 
 function init(){
@@ -887,6 +943,14 @@ el("fPm").addEventListener("change", function(e){ state.pm = e.target.value; ren
 el("fStage").addEventListener("change", function(e){ state.stage = e.target.value; render(); });
 el("fPri").addEventListener("change", function(e){ state.pri = e.target.value; render(); });
 el("fHealth").addEventListener("change", function(e){ state.health = e.target.value; render(); });
+el("fYear").addEventListener("change", function(e){
+  state.year = e.target.value; buildRange(); render();
+  el("scroller").scrollTo({left: 0, behavior: "auto"});
+});
+el("fMonth").addEventListener("change", function(e){
+  state.month = e.target.value; buildRange(); render();
+  el("scroller").scrollTo({left: 0, behavior: "auto"});
+});
 el("q").addEventListener("input", function(e){ state.q = e.target.value; render(); });
 el("zoomSel").addEventListener("change", function(e){ state.zoom = +e.target.value; render(); });
 el("autoHealth").addEventListener("change", function(e){ state.auto = e.target.checked; render(); });
