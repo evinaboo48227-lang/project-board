@@ -164,6 +164,8 @@ table.full td.nowrap{white-space:nowrap;}
 .btn.danger{background:#8a2d21; border-color:#8a2d21; color:#fff;}
 .btn.danger:hover{background:#a03828;}
 .msg{font-size:11px; color:var(--ink-3); margin-right:auto;}
+.msg.on{color:#2a7a76;}
+.msg.off{color:#9a3b2e;}
 .chip{display:inline-block; font-size:10px; padding:1px 6px; border-radius:2px; background:#e8efe9; color:#2c5f3f;}
 
 @media (max-width:900px){
@@ -218,6 +220,7 @@ table.full td.nowrap{white-space:nowrap;}
       <label class="switch"><input type="checkbox" id="autoHealth">按日期规则重算状态</label>
       <button class="btn" id="exportBtn">导出 Excel（带颜色）</button>
       <button class="btn ghost" id="addBtn">＋ 新增项目</button>
+      <button class="btn ghost" id="syncBtn">从云端刷新</button>
       <button class="btn ghost" id="resetBtn">还原原表</button>
       <span class="msg" id="editHint"></span>
     </div>
@@ -249,7 +252,7 @@ table.full td.nowrap{white-space:nowrap;}
 </section>
 
 <div class="notes">
-  <div><b>并行项目</b>：自动计算——同一项目经理、且项目起止区间与本人重叠的其他项目数量，明细列与甘特征标同步；无计划日期不参与统计。修改/删除只保存在本机浏览器（他人看到的仍是原表），要全员同步请导出 Excel 或把改动发给管理员更新线上版本。</div>
+  <div><b>并行项目</b>：自动计算——同一项目经理、且项目起止区间与本人重叠的其他项目数量，明细列与甘特征标同步；无计划日期不参与统计。修改/删除/新增都会写入云端数据库，所有人打开看到的是同一份数据；断网时先存本机缓存，联网后点「从云端刷新」再拉一次。</div>
   <div><b>数据口径</b>：内容按全项目部项目跟踪总览表逐格录入，健康状态默认沿用原表标记；勾选「按日期规则重算状态」后改为自动判定——无计划完成日期判绿，距完成 ≤3 天且进度 &lt;100% 判红，≤7 天判黄，其余判绿，已过期为红。</div>
   <div><b>导出的 Excel</b>：导出为带底色的 .xls 快照（Excel / WPS 可直接打开），只含项目明细，不含甘特图。</div>
   <div><b>遮档说明</b>：原表中「主要风险/卡点」第 1 行有一段被行高遮挡、日期列（立项会 / 设计评审 / 试产准备会）全为空，已按可见内容录入。</div>
@@ -266,7 +269,7 @@ table.full td.nowrap{white-space:nowrap;}
     </div>
     <div class="modal-bd" id="mBody"></div>
     <div class="modal-ft">
-      <span class="msg">改动保存在本浏览器；要同步给所有人，导出 Excel 或把数据发我更新线上版本。</span>
+      <span class="msg">改动实时保存到云端，所有人看到同一份；顶栏会显示“云端已同步”或“离线”。</span>
       <button class="btn danger" id="mDel">删除这条</button>
       <button class="btn ghost" id="mCancel">取消</button>
       <button class="btn" id="mSave">保存</button>
@@ -705,11 +708,79 @@ function fillYearMonth(){
   selM.value = state.month || "";
 }
 
-/* ===== 本地存储 ===== */
+/* ===== 云端数据库（Supabase REST） ===== */
+var DB = {
+  url: "https://suywgurhfbiihjdsfure.supabase.co",
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1eXdndXJoZmJpaWhqZHNmdXJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0Njg3ODcsImV4cCI6MjExMDA0NDc4N30.Ul1_aydoSi5r9AkhR4M9-6CyCbG3uEsWv1hh7Hl_uy0",
+  table: "projects",
+  online: false,
+  busy: 0
+};
+var SYNC_TXT = "正在连接云端…";
+function setSync(t){ SYNC_TXT = t; updateEditHint(); }
+function dbHeaders(extra){
+  var h = { "apikey": DB.key, "Authorization": "Bearer " + DB.key, "Content-Type": "application/json" };
+  if(extra) for(var k in extra) h[k] = extra[k];
+  return h;
+}
+function dbReq(path, opt){
+  opt = opt || {};
+  DB.busy++;
+  return fetch(DB.url + "/rest/v1/" + path, {
+    method: opt.method || "GET",
+    headers: dbHeaders(opt.headers),
+    body: opt.body ? JSON.stringify(opt.body) : undefined
+  }).then(function(r){
+    DB.busy--;
+    if(!r.ok){
+      return r.text().then(function(t){ throw new Error(r.status + " " + t.slice(0, 120)); });
+    }
+    if(opt.raw) return r.text();
+    return r.json().catch(function(){ return null; });
+  }, function(e){ DB.busy--; throw e; });
+}
+function dbLoadAll(){
+  return dbReq(DB.table + "?select=key,payload&order=updated_at.asc");
+}
+function dbSaveRow(p){
+  var body = {};
+  body.key = keyOf(p);
+  body.payload = p;
+  body.updated_at = new Date().toISOString();
+  return dbReq(DB.table + "?on_conflict=key", {
+    method: "POST",
+    headers: { "Prefer": "resolution=merge-duplicates,return=minimal" },
+    body: body, raw: true
+  });
+}
+function dbDelRow(p){
+  return dbReq(DB.table + "?key=eq." + encodeURIComponent(keyOf(p)), { method: "DELETE", raw: true });
+}
+function dbReplaceAll(arr){
+  return dbReq(DB.table + "?key=not.is.null", { method: "DELETE", raw: true }).then(function(){
+    if(!arr.length) return null;
+    var body = arr.map(function(p){
+      return { key: keyOf(p), payload: p, updated_at: new Date().toISOString() };
+    });
+    return dbReq(DB.table, { method: "POST", headers: { "Prefer": "return=minimal" }, body: body, raw: true });
+  });
+}
+function keyOf(p){
+  if(!p.uid){
+    p.uid = (p.code ? String(p.code) : "r" + (p.no || 0)) + "-" + Math.random().toString(36).slice(2, 7);
+  }
+  return p.uid;
+}
+function ensureUids(){ DATA.forEach(keyOf); }
+
+/* ===== 本地缓存（离线兜底） ===== */
 var KEY = "pt-board-data-v1";
 var ORIGINAL = null;
-function saveData(){
+function saveLocal(){
   try{ localStorage.setItem(KEY, JSON.stringify(DATA)); }catch(e){}
+}
+function saveData(){
+  saveLocal();
   updateEditHint();
 }
 function loadData(){
@@ -721,13 +792,49 @@ function loadData(){
       if(Array.isArray(arr) && arr.length) DATA = arr;
     }
   }catch(e){}
+  ensureUids();
   updateEditHint();
+  cloudSync(true);
+}
+function cloudSync(initial){
+  setSync("正在连接云端…");
+  dbLoadAll().then(function(rows){
+    if(!rows || !rows.length){
+      // 云端还是空表：把当前数据整份初始化上去
+      return dbReplaceAll(DATA).then(function(){
+        DB.online = true;
+        setSync("云端已初始化 · " + DATA.length + " 条");
+      });
+    }
+    DATA = rows.map(function(r){ return r.payload; });
+    ensureUids();
+    saveLocal();
+    if(!initial){ state.cust = state.pm = state.stage = state.pri = state.year = state.month = ""; }
+    refreshSelects();
+    buildRange();
+    render();
+    DB.online = true;
+    setSync("云端已同步 · " + DATA.length + " 条");
+  }).catch(function(e){
+    DB.online = false;
+    setSync("离线（本机缓存中）");
+  });
+}
+function afterWrite(promise, label){
+  setSync("正在保存…");
+  promise.then(function(){
+    DB.online = true;
+    setSync(label || "已保存到云端");
+  }).catch(function(e){
+    DB.online = false;
+    setSync("保存失败，已存本机：" + String(e.message || e).slice(0, 40));
+  });
 }
 function updateEditHint(){
-  var has = false;
-  try{ has = !!localStorage.getItem(KEY); }catch(e){}
   var h = el("editHint");
-  if(h) h.textContent = has ? "本机已改动 · " + DATA.length + " 条（他人看到的是原表）" : "";
+  if(!h) return;
+  h.textContent = SYNC_TXT + " · " + DATA.length + " 条";
+  h.className = "msg" + (DB.online ? " on" : " off");
 }
 
 /* ===== 编辑 / 删除 ===== */
@@ -806,16 +913,21 @@ function saveEditor(){
     vals[k] = v;
   });
   if(!vals.code && !vals.name){ alert("项目编号和项目名称至少填一个"); return; }
+  var target;
   if(editing){
     Object.keys(vals).forEach(function(k){ editing[k] = vals[k]; });
+    target = editing;
   }else{
     var maxNo = DATA.reduce(function(m, p){ return Math.max(m, p.no || 0); }, 0);
     vals.no = maxNo + 1;
     vals.parallel = "";
+    vals.code = vals.code || String(vals.no);
+    target = vals;
     DATA.push(vals);
   }
   closeEditor();
   saveData();
+  afterWrite(dbSaveRow(target), "已保存到云端");
   refreshSelects();
   buildRange();
   render();
@@ -823,10 +935,11 @@ function saveEditor(){
 }
 function deleteRow(p){
   if(!p) return;
-  if(!confirm("确认删除「" + (p.name || p.code) + "」？删除后仅本机生效。")) return;
+  if(!confirm("确认删除「" + (p.name || p.code) + "」？删除会同步到云端，所有人都会看不到这条。")) return;
   DATA = DATA.filter(function(q){ return q !== p; });
   closeEditor();
   saveData();
+  afterWrite(dbDelRow(p), "已从云端删除");
   refreshSelects();
   buildRange();
   render();
@@ -836,10 +949,13 @@ function findRow(key){
   return DATA.filter(function(p){ return (p.code || String(p.no)) === key; })[0];
 }
 function resetData(){
-  if(!confirm("还原为最初录入的原表数据？本机改动会清空。")) return;
+  if(!confirm("还原为最初录入的原表数据？云端和所有人的数据都会被覆盖。")) return;
   try{ localStorage.removeItem(KEY); }catch(e){}
   if(ORIGINAL) DATA = JSON.parse(JSON.stringify(ORIGINAL));
+  ensureUids();
   state.cust = state.pm = state.stage = state.pri = state.year = state.month = "";
+  saveLocal();
+  afterWrite(dbReplaceAll(DATA), "已覆盖云端原表");
   refreshSelects();
   buildRange();
   render();
@@ -960,6 +1076,13 @@ el("todayBtn").addEventListener("click", function(){
 el("exportBtn").addEventListener("click", exportExcel);
 el("addBtn").addEventListener("click", function(){ openEditor(null); });
 el("resetBtn").addEventListener("click", resetData);
+el("syncBtn").addEventListener("click", function(){ cloudSync(true); });
+var lastFocusSync = Date.now();
+window.addEventListener("focus", function(){
+  if(Date.now() - lastFocusSync < 15000) return;
+  lastFocusSync = Date.now();
+  if(!DB.busy) cloudSync(true);
+});
 el("mSave").addEventListener("click", saveEditor);
 el("mCancel").addEventListener("click", closeEditor);
 el("mX").addEventListener("click", closeEditor);
