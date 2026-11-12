@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目跟踪看板 · 全项目部</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23161d22'/%3E%3Crect x='6' y='9' width='14' height='4' fill='%232a7a76'/%3E%3Crect x='10' y='15' width='16' height='4' fill='%23b1791c'/%3E%3Crect x='8' y='21' width='10' height='4' fill='%239a3b2e'/%3E%3C/svg%3E">
+<style>
+:root{
+  --paper:#f1efe9; --panel:#fbfaf7; --ink:#161d22; --ink-2:#3d474d; --ink-3:#77838a;
+  --line:#ddd8cf; --line-2:#cfc9be;
+  --bar:#2a7a76; --bar-past:#1f5f5c; --late:#9a3b2e; --amber:#b1791c; --green:#3f7a54;
+  --h-red:#f7dfdc; --h-yellow:#fbf1ce; --h-green:#ddefe2;
+  --c1:44px; --c2:236px; --c3:56px; --c4:94px; --c5:74px;
+  --l2:44px; --l3:280px; --l4:336px; --l5:430px;
+  --cell:10px; --head1:26px; --head2:24px; --rowh:42px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+  font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+.mast{background:var(--ink); color:#edf1ef; padding:26px 26px 20px;}
+.mast .kicker{display:flex; align-items:center; gap:10px; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#93a3a7;}
+.mast .kicker i{display:block; width:26px; height:2px; background:var(--bar);}
+.mast h1{margin:10px 0 12px; font-size:34px; line-height:1.15; font-weight:700; letter-spacing:-.01em;}
+.mast h1 .thin{font-weight:400; color:#a9b7ba; font-size:26px;}
+.mast .meta{font-size:12px; color:#a9b7ba; margin:0;}
+.mast .meta b{color:#fff; font-weight:600;}
+.tally{display:flex; flex-wrap:wrap; gap:22px; margin-top:18px;}
+.tally .t{display:flex; align-items:baseline; gap:8px;}
+.tally .t span.dot{width:7px; height:7px; border-radius:50%; align-self:center;}
+.tally .num{font-size:25px; font-weight:700; font-variant-numeric:tabular-nums;}
+.tally .cap{font-size:11px; color:#93a3a7;}
+
+.panel{background:var(--panel); border:1px solid var(--line); margin:16px 20px; border-radius:3px;}
+.panel-hd{display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; padding:13px 16px; border-bottom:1px solid var(--line);}
+.panel-hd h2{margin:0; font-size:15px; font-weight:600; letter-spacing:.01em;}
+.panel-hd .n{font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums;}
+.panel-hd .hint{margin-left:auto; font-size:11px; color:var(--ink-3);}
+.panel-bd{padding:12px 16px 14px;}
+
+.bar-tools{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center;}
+.field{display:flex; align-items:center; gap:6px; min-width:0;}
+.field label{font-size:11px; color:var(--ink-3); white-space:nowrap;}
+select,input[type=text]{
+  font:inherit; font-size:12px; color:var(--ink); background:#fff;
+  border:1px solid var(--line-2); border-radius:2px; padding:5px 7px; min-width:0;
+}
+input[type=text]{min-width:170px;}
+select:focus,input:focus{outline:2px solid #9dbfbc; outline-offset:0;}
+.btn{font:inherit; font-size:12px; background:var(--ink); color:#fff; border:1px solid var(--ink);
+  border-radius:2px; padding:6px 12px; cursor:pointer;}
+.btn:hover{background:#2b363c;}
+.btn.ghost{background:transparent; color:var(--ink-2); border-color:var(--line-2);}
+.btn.ghost:hover{background:#eceae4;}
+.switch{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-2); cursor:pointer; white-space:nowrap;}
+.switch input{width:15px; height:15px; accent-color:var(--bar);}
+.legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; font-size:11px; color:var(--ink-3); align-items:center;}
+.legend .k{display:flex; align-items:center; gap:5px;}
+.legend .sw{width:14px; height:9px; display:inline-block;}
+
+.scroller{overflow:auto; max-height:66vh; border-top:1px solid var(--line);}
+table.board{border-collapse:separate; border-spacing:0; table-layout:fixed;}
+table.board thead th{position:sticky; background:#243240; color:#dfe8e6; font-weight:500; font-size:11px;
+  text-align:left; padding:0 8px; height:var(--head1); z-index:20; border-bottom:1px solid #16212a; white-space:nowrap;}
+table.board thead th.stick{top:0; z-index:40; background:#1b262e;}
+th.c1{left:0;} th.c2{left:var(--l2);} th.c3{left:var(--l3);} th.c4{left:var(--l4);} th.c5{left:var(--l5);}
+thead th.month{background:#1e2a36; top:0; z-index:22; text-align:left; padding-left:7px; font-size:10px;
+  letter-spacing:.06em; font-weight:600; color:#dfe8e6;}
+thead th.tick{background:#243240; top:var(--head1); height:var(--head2); font-size:9px; color:#8fa2a5;
+  text-align:center; padding:0; font-variant-numeric:tabular-nums; border-left:1px solid #2f414c;}
+thead th.tick.m5{border-left:1px solid #4a5f6a; color:#cfdcda;}
+thead th.tick.today{background:#8b2016; color:#fff; font-weight:700;}
+
+tbody tr.row td{height:var(--rowh); border-bottom:1px solid #e5e1d8; padding:0 8px; font-size:12px;
+  background:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+tbody tr.row:hover td{background:#f3f1ea;}
+td.stick{z-index:7;}
+td.c1{left:0;} td.c2{left:var(--l2);} td.c3{left:var(--l3);} td.c4{left:var(--l4);} td.c5{left:var(--l5);}
+td.c1,td.c2,td.c3,td.c4,td.c5{position:sticky; box-shadow:1px 0 0 #e5e1d8; background:#fff;}
+td.c1{box-shadow:1px 0 0 #e5e1d8;}
+td.c1::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--stripe,#e3e0d8);}
+.num{text-align:right; font-variant-numeric:tabular-nums;}
+td.c2{font-weight:500;}
+td.c2 .sub{display:block; font-weight:400; font-size:10px; color:var(--ink-3); line-height:1.2;}
+.pill{display:inline-block; padding:1px 6px; border-radius:2px; font-size:10px; line-height:1.6; white-space:nowrap;}
+.pill.red{background:var(--h-red); color:#8a2d21;}
+.pill.yellow{background:var(--h-yellow); color:#8a5c0c;}
+.pill.green{background:var(--h-green); color:#2c5f3f;}
+.pri{display:inline-block; width:19px; height:17px; line-height:17px; text-align:center; border-radius:2px;
+  color:#fff; font-size:10px; font-weight:700;}
+.pri.S{background:#9a2b22;} .pri.A{background:#c07a1e;} .pri.B{background:#3f7d5a;}
+.pri.none{background:#e3e0d8; color:#8d8880;}
+tr.row.over td.c6{color:var(--late); font-weight:600;}
+
+td.track{position:relative; z-index:0; overflow:hidden; padding:0 !important; border-left:1px solid var(--line-2);}
+td.track .bar{position:absolute; top:calc((var(--rowh) - 14px)/2); height:14px; border-radius:2px;
+  background:var(--bar); cursor:pointer; box-shadow:0 0 0 1px #0000000f inset;}
+td.track .bar.late{background:var(--late);}
+td.track .bar .prog{position:absolute; left:0; top:0; bottom:0; background:#ffffff44; border-radius:2px 0 0 2px;}
+td.track .none{position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:11px;
+  color:var(--ink-3); font-style:italic;}
+tbody tr.detail td{background:#f7f5ef; border-bottom:1px solid var(--line); padding:12px 16px;}
+.dgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px 18px;}
+.dgrid .f{border-left:2px solid var(--bar); padding-left:9px;}
+.dgrid .f .k{font-size:10px; color:var(--ink-3); letter-spacing:.04em;}
+.dgrid .f .v{font-size:12px; color:var(--ink); white-space:normal;}
+.dgrid .f.wide{grid-column:1/-1;}
+
+#tip{position:fixed; z-index:99; pointer-events:none; background:#161d22; color:#fff; border-radius:3px;
+  padding:8px 10px; font-size:11px; line-height:1.7; box-shadow:0 6px 18px #00000033; max-width:280px;}
+#tip b{font-weight:600;}
+#tip .rowk{display:flex; gap:8px;}
+#tip .rowk span{color:#8fa3a6; min-width:44px;}
+
+table.full{border-collapse:collapse; table-layout:fixed;}
+table.full th,table.full td{border:1px solid #e2ded4; padding:5px 7px; font-size:12px; line-height:1.45;
+  vertical-align:middle; white-space:normal; word-break:break-word;}
+table.full th{position:sticky; top:0; z-index:5; background:#2b3941; color:#e8eeec; font-weight:500; font-size:11px;
+  text-align:left; border-color:#3d4c55;}
+table.full td.c1,table.full td.c2{position:sticky; z-index:4; background:inherit;}
+table.full thead th.c1,table.full thead th.c2{z-index:6;}
+table.full tr.h-red td{background:var(--h-red);} table.full tr.h-yellow td{background:var(--h-yellow);}
+table.full tr.h-green td{background:var(--h-green);}
+table.full td.nowrap{white-space:nowrap;}
+
+.notes{margin:14px 20px 30px; font-size:11px; color:var(--ink-3); line-height:1.9;}
+.notes b{color:var(--ink-2); font-weight:600;}
+.empty{padding:24px; text-align:center; color:var(--ink-3); font-size:12px;}
+
+@media (max-width:900px){
+  :root{--c1:32px; --c2:150px; --c3:42px; --c4:90px;
+        --l2:32px; --l3:182px; --l4:224px; --cell:8px; --rowh:46px;}
+  .mast{padding:20px 16px 16px;}
+  .mast h1{font-size:24px;} .mast h1 .thin{display:block; font-size:17px; margin-top:2px;}
+  .panel{margin:12px 10px;} .panel-bd{padding:10px 10px 12px;}
+  .tally{gap:14px;} .tally .num{font-size:20px;}
+  .col-opt{display:none;}
+  .scroller{max-height:60vh;}
+  table.board thead th{font-size:10px; padding:0 6px;}
+  tbody tr.row td{padding:0 6px; font-size:11px;}
+  td.c5,thead th.c5{display:none;}
+  .pri{width:16px; height:15px; line-height:15px; font-size:9px;}
+  .pill{font-size:10px;}
+  .legend{gap:10px;}
+  .dgrid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="kicker"><i></i>全项目部 · 项目跟踪</div>
+  <h1>项目跟踪看板<span class="thin"> 计划与实际的同一条基线</span></h1>
+  <p class="meta">当前视图 <b id="todayLbl">—</b> ／ 时间轴 <span id="rangeLbl">—</span> ／ 记录 <b id="countLbl">0</b> 条</p>
+  <div class="tally" id="tally"></div>
+</header>
+
+<section class="panel">
+  <div class="panel-hd">
+    <h2>甘特视图</h2>
+    <span class="n" id="ganttN"></span>
+    <span class="hint" id="viewHint">点行展开全部字段 · 鼠标移到横条上看工期与进度</span>
+  </div>
+  <div class="panel-bd">
+    <div class="bar-tools">
+      <div class="field"><label>客户</label><select id="fCust"></select></div>
+      <div class="field"><label>项目经理</label><select id="fPm"></select></div>
+      <div class="field"><label>阶段</label><select id="fStage"></select></div>
+      <div class="field"><label>优先级</label><select id="fPri"></select></div>
+      <div class="field"><label>状态</label><select id="fHealth"></select></div>
+      <div class="field"><label>搜索</label><input type="text" id="q" placeholder="项目 / 编号 / 客户 / 责任人"></div>
+      <div class="field"><label>缩放</label><select id="zoomSel">
+        <option value="8">紧凑</option><option value="10" selected>标准</option>
+        <option value="14">宽松</option><option value="20">宽松 ×2</option>
+      </select></div>
+      <button class="btn ghost" id="todayBtn">回到今天</button>
+      <label class="switch"><input type="checkbox" id="autoHealth">按日期规则重算状态</label>
+      <button class="btn" id="exportBtn">导出 Excel（带颜色）</button>
+    </div>
+    <div class="legend">
+      <span class="k"><i class="sw" style="background:var(--bar)"></i>计划工期</span>
+      <span class="k"><i class="sw" style="background:#8fb9b6"></i>已完成进度</span>
+      <span class="k"><i class="sw" style="background:var(--late)"></i>逾期未完成</span>
+      <span class="k"><i class="sw" style="background:#ece9e2"></i>周末</span>
+      <span class="k"><i class="sw" style="background:#8b2016"></i>今天</span>
+      <span class="k">日期表头每 5 天标一次，竖线为今天</span>
+    </div>
+    <div class="scroller" id="scroller">
+      <table class="board" id="board"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-hd">
+    <h2>全字段明细</h2>
+    <span class="n" id="fullN"></span>
+    <span class="hint">23 列与原表一致，行底色 = 健康状态</span>
+  </div>
+  <div class="panel-bd" style="padding:0;">
+    <div class="scroller" style="border-top:0;">
+      <table class="full" id="fullTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </div>
+</section>
+
+<div class="notes">
+  <div><b>数据口径</b>：内容按全项目部项目跟踪总览表逐格录入，健康状态默认沿用原表标记；勾选「按日期规则重算状态」后改为自动判定——无计划完成日期判绿，距完成 ≤3 天且进度 &lt;100% 判红，≤7 天判黄，其余判绿，已过期为红。</div>
+  <div><b>导出的 Excel</b>：导出为带底色的 .xls 快照（Excel / WPS 可直接打开），只含项目明细，不含甘特图。</div>
+  <div><b>遮档说明</b>：原表中「主要风险/卡点」第 1 行有一段被行高遮挡、日期列（立项会 / 设计评审 / 试产准备会）全为空，已按可见内容录入。</div>
+</div>
+
+<div id="tip" hidden></div>
+
+<script>
+/* ===== 数据：全项目部项目跟踪总览（10 条，字段与原表一致） ===== */
+var DATA = [
+  {no:1, code:"BJJA01D26195", name:"国内版6.25MWH集装箱", cust:"晶澳", model:"1.56MW/6.25MWH 储能直流集装箱（国标）",
+   mode:"自研", biz:"朱申权", pm:"朱进立", stage:"设计开发", pri:"S", start:"2026-09-17", end:"2026-11-04",
+   kickoff:"", review:"", trial:"", prog:80, health:"红预警",
+   risk:"1.器件选型基本已经确认；2.CCS和液冷板目前交期偏晚（原文此处被行高遮挡）",
+   next:"1.整机结构评审，冻模；2.样机试产；", follow:"1.结构、线束设计完成；2.物料齐套；",
+   followDate:"2026-11-04", parallel:"", note:""},
+  {no:2, code:"BJJA01D26194", name:"海外版6.25MWH集装箱", cust:"晶澳", model:"1.56MW/6.25MWH 储能直流集装箱（欧标）",
+   mode:"自研", biz:"朱申权", pm:"朱进立", stage:"设计开发", pri:"S", start:"2026-09-10", end:"2026-11-10",
+   kickoff:"", review:"", trial:"", prog:80, health:"红预警",
+   risk:"1.器件选型基本已经确认，但客户还有EMS需求没明确。",
+   next:"1.整机结构评审，冻模；2.样机试产；", follow:"1.结构、线束设计完成；2.物料齐套；",
+   followDate:"2026-11-04", parallel:"", note:""},
+  {no:3, code:"TBDG01D26299", name:"白俄罗斯88MWH项目", cust:"特变电工", model:"集装箱",
+   mode:"自研", biz:"吕顺强", pm:"梁晓阳", stage:"报价", pri:"B", start:"", end:"",
+   kickoff:"", review:"", trial:"", prog:null, health:"绿正常",
+   risk:"", next:"", follow:"", followDate:"", parallel:"", note:""},
+  {no:4, code:"JSTH01A26300", name:"天合G2项目", cust:"江苏天合", model:"插箱",
+   mode:"代工", biz:"侯涛", pm:"邱子鑫", stage:"立项", pri:"A", start:"2026-10-29", end:"2026-12-25",
+   kickoff:"", review:"", trial:"", prog:5, health:"黄关注",
+   risk:"测试工装采购", next:"15号客供调机物料齐套；16号上线调机",
+   follow:"1、15号前测试及制程工装到位", followDate:"2026-11-15", parallel:"", note:""},
+  {no:5, code:"XWDD01D26301", name:"欣旺达5MWh集装箱", cust:"欣旺达", model:"集装箱",
+   mode:"代工", biz:"曹斌", pm:"陈新本", stage:"量产", pri:"B", start:"2026-10-27", end:"2026-12-17",
+   kickoff:"", review:"", trial:"", prog:null, health:"红预警",
+   risk:"BOM建设中", next:"", follow:"", followDate:"2026-11-05", parallel:"", note:""},
+  {no:6, code:"SHZT01A26302", name:"PhS约旦8MW8MWh大储项目", cust:"上海正泰", model:"插箱",
+   mode:"代工", biz:"侯涛", pm:"梁晓阳", stage:"立项", pri:"B", start:"", end:"",
+   kickoff:"", review:"", trial:"", prog:null, health:"绿正常",
+   risk:"", next:"", follow:"", followDate:"", parallel:"", note:""},
+  {no:7, code:"ZMKT01F26305", name:"追梦 DF3000 V2.0", cust:"追梦空天", model:"电池系统",
+   mode:"自研", biz:"侯涛", pm:"张艺娴", stage:"方案评估", pri:"S", start:"2026-10-21", end:"2027-02-27",
+   kickoff:"", review:"", trial:"", prog:5, health:"黄关注",
+   risk:"1、电芯选型未确定", next:"1、电芯测试结果", follow:"1、电芯测试结果跟进",
+   followDate:"2026-11-15", parallel:"", note:""},
+  {no:8, code:"YPKJ01D26306", name:"5MWh国标直流舱", cust:"因湃科技", model:"集装箱",
+   mode:"自研", biz:"赵月洁", pm:"周煜胜", stage:"方案评估", pri:"A", start:"2026-11-06", end:"2026-11-10",
+   kickoff:"", review:"", trial:"", prog:5, health:"红预警",
+   risk:"技术协议评估", next:"技术协议评估", follow:"技术协议评估",
+   followDate:"2026-11-09", parallel:"", note:""},
+  {no:9, code:"CDQD01A26307", name:"清电易 1P52S-客供卫蓝电芯", cust:"成都清电", model:"插箱",
+   mode:"自研", biz:"赵月洁", pm:"周煜胜", stage:"物料提拉", pri:"B", start:"2026-11-04", end:"2026-11-30",
+   kickoff:"", review:"", trial:"", prog:null, health:"绿正常",
+   risk:"物料周期不定", next:"等料中", follow:"等料中", followDate:"2026-11-30", parallel:"", note:""},
+  {no:10, code:"SZXX01A26308", name:"协鑫 SZXX01A26544改自采电芯", cust:"苏州协鑫", model:"插箱",
+   mode:"代工", biz:"周煜胜", pm:"周煜胜", stage:"量产", pri:"", start:"2026-11-09", end:"2026-11-30",
+   kickoff:"", review:"", trial:"", prog:null, health:"绿正常",
+   risk:"", next:"", follow:"", followDate:"", parallel:"", note:""}
+];
+
+/* ===== 工具 ===== */
+var DAY = 86400000;
+function el(id){ return document.getElementById(id); }
+function parseD(s){ if(!s) return null; var p = s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function midnight(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function daysBetween(a, b){ return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate()) - Date.UTC(a.getFullYear(),a.getMonth(),a.getDate())) / DAY); }
+function addDays(d, n){ var x = new Date(d.getTime()); x.setDate(x.getDate() + n); return x; }
+function fmtMD(d){ return (d.getMonth()+1) + "月" + d.getDate() + "日"; }
+function fmtISO(d){ if(!d) return ""; var m = d.getMonth()+1, dd = d.getDate(); return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(dd<10?"0":"")+dd; }
+function esc(s){ return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function dash(v){ return (v === "" || v == null) ? "—" : v; }
+
+var TODAY = midnight(new Date());
+
+/* ===== 状态判定 ===== */
+function computedHealth(p){
+  var end = parseD(p.end);
+  if(!end) return {key:"green", label:"绿正常"};
+  var remain = daysBetween(TODAY, end);
+  var prog = (p.prog == null) ? 0 : p.prog;
+  if(remain < 0) return {key:"red", label:"红逾期"};
+  if(prog >= 100) return {key:"green", label:"绿正常"};
+  if(remain <= 3) return {key:"red", label:"红预警"};
+  if(remain <= 7) return {key:"yellow", label:"黄关注"};
+  return {key:"green", label:"绿正常"};
+}
+function statusOf(p, auto){
+  if(!auto){
+    var k = p.health.indexOf("红") === 0 ? "red" : (p.health.indexOf("黄") === 0 ? "yellow" : "green");
+    return {key:k, label:p.health};
+  }
+  return computedHealth(p);
+}
+
+/* ===== 状态 ===== */
+var state = { cust:"", pm:"", stage:"", pri:"", health:"", q:"", zoom:10, selected:null, auto:false };
+var range = {from:null, to:null, days:0};
+
+function buildRange(){
+  var minD = null, maxD = null;
+  DATA.forEach(function(p){
+    var s = parseD(p.start), e = parseD(p.end);
+    if(s && (!minD || s < minD)) minD = s;
+    if(e && (!maxD || e > maxD)) maxD = e;
+  });
+  if(!minD) minD = TODAY; if(!maxD) maxD = TODAY;
+  var from = addDays(minD, -7);
+  if(TODAY < from) from = addDays(TODAY, -14);
+  var to = addDays(maxD, 21);
+  if(TODAY > to) to = addDays(TODAY, 21);
+  from = new Date(from.getFullYear(), from.getMonth(), 1);
+  to = new Date(to.getFullYear(), to.getMonth()+1, 0);
+  range = {from:from, to:to, days: daysBetween(from, to) + 1};
+}
+
+function filtered(){
+  var q = state.q.trim().toLowerCase();
+  return DATA.filter(function(p){
+    if(state.cust && p.cust !== state.cust) return false;
+    if(state.pm && p.pm !== state.pm) return false;
+    if(state.stage && p.stage !== state.stage) return false;
+    if(state.pri && (p.pri || "无") !== state.pri) return false;
+    if(state.health){
+      var s = statusOf(p, state.auto);
+      if(s.key !== state.health) return false;
+    }
+    if(q){
+      var hay = (p.name + p.code + p.cust + p.biz + p.pm + p.model + p.stage + p.risk + p.next).toLowerCase();
+      if(hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+}
+
+/* ===== 甘特表 ===== */
+function renderGantt(rows){
+  var narrow = window.matchMedia("(max-width:900px)").matches;
+  var z = state.zoom;
+  var W = narrow ? {c1:32, c2:150, c3:42, c4:90}
+                 : {c1:44, c2:236, c3:56, c4:94, c5:74};
+  var leftSum = 0; for(var k in W) leftSum += W[k];
+  var total = range.days;
+  var board = el("board");
+  board.style.width = (leftSum + total * z) + "px";
+
+  /* 用 colgroup 固定每列宽度，保证月份表头 / 日期刻度 / 横条三者列位一致 */
+  var cg = board.querySelector("colgroup");
+  if(!cg){ cg = document.createElement("colgroup"); board.insertBefore(cg, board.firstChild); }
+  var cgHtml = "";
+  for(var kk in W) cgHtml += '<col style="width:' + W[kk] + 'px">';
+  for(var ci=0;ci<total;ci++) cgHtml += '<col style="width:' + z + 'px">';
+  cg.innerHTML = cgHtml;
+
+  var headCells =
+    '<th class="c1 stick" rowspan="2" style="width:' + W.c1 + 'px">序号</th>' +
+    '<th class="c2 stick" rowspan="2" style="width:' + W.c2 + 'px">项目 / 客户</th>' +
+    '<th class="c3 stick" rowspan="2" style="width:' + W.c3 + 'px">优先级</th>' +
+    '<th class="c4 stick" rowspan="2" style="width:' + W.c4 + 'px">状态</th>' +
+    (narrow ? "" : '<th class="c5 stick" rowspan="2" style="width:' + W.c5 + 'px">剩余 / 工期</th>');
+
+  var monthRow = "", dayRow = "";
+  var curM = -1, run = 0;
+  for(var i=0;i<total;i++){
+    var d = addDays(range.from, i);
+    var isToday = d.getTime() === TODAY.getTime();
+    var is5 = d.getDate() % 5 === 0;
+    var is1 = d.getDate() === 1;
+    var showNum = is1 || (d.getDate() % 5 === 0 && z >= 14);
+    dayRow += '<th class="tick' + ((is5 || is1) ? ' m5' : '') + (isToday ? ' today' : '') + '" style="width:' + z + 'px">' +
+      (showNum ? d.getDate() : "") + '</th>';
+    if(d.getMonth() !== curM){
+      if(run) monthRow += '<th class="month" colspan="' + run + '" style="width:' + (run*z) + 'px">' + (curM+1) + ' 月</th>';
+      curM = d.getMonth(); run = 0;
+    }
+    run++;
+  }
+  if(run) monthRow += '<th class="month" colspan="' + run + '" style="width:' + (run*z) + 'px">' + (curM+1) + ' 月</th>';
+  el("thead").innerHTML = '<tr>' + headCells + monthRow + '</tr><tr>' + dayRow + '</tr>';
+
+  /* 背景：周末底色 / 5 天粗线 / 日细线 / 今天竖线 */
+  var wkStops = [], lastX = 0;
+  for(var i2=0;i2<total;i2++){
+    var d2 = addDays(range.from, i2);
+    if(d2.getDay() === 0 || d2.getDay() === 6){
+      var x0 = i2*z, x1 = (i2+1)*z;
+      if(x0 > lastX) wkStops.push("transparent " + lastX + "px", "transparent " + x0 + "px");
+      wkStops.push("#ece9e2 " + x0 + "px", "#ece9e2 " + x1 + "px");
+      lastX = x1;
+    }
+  }
+  if(lastX < total*z) wkStops.push("transparent " + lastX + "px", "transparent " + (total*z) + "px");
+
+  var wkBg = wkStops.length ? "linear-gradient(90deg, " + wkStops.join(", ") + ")" : "none";
+  var gridBg = "repeating-linear-gradient(90deg, transparent 0, transparent " + (z-1) + "px, #e2ded5 " + (z-1) + "px, #e2ded5 " + z + "px)";
+  var day5Bg = total*z > 0 ? "repeating-linear-gradient(90deg, transparent 0, transparent " + (5*z-1) + "px, #c9c3b7 " + (5*z-1) + "px, #c9c3b7 " + (5*z) + "px)" : "none";
+  var todayIdx = daysBetween(range.from, TODAY);
+  var todayBg = (todayIdx >= 0 && todayIdx < total)
+    ? "linear-gradient(90deg, transparent " + (todayIdx*z) + "px, #8b2016 " + (todayIdx*z) + "px, #8b2016 " + (todayIdx*z + 2) + "px, transparent " + (todayIdx*z + 2) + "px)"
+    : "none";
+  var trackBg = todayBg + ", " + wkBg + ", " + day5Bg + ", " + gridBg;
+
+  var tbody = el("tbody");
+  tbody.innerHTML = "";
+  var colCount = (narrow ? 4 : 5) + total;
+
+  rows.forEach(function(p){
+    var s = statusOf(p, state.auto);
+    var start = parseD(p.start), end = parseD(p.end);
+    var remain = end ? daysBetween(TODAY, end) : null;
+    var dur = (start && end) ? daysBetween(start, end) + 1 : null;
+    var stripe = s.key === "red" ? "#9a3b2e" : (s.key === "yellow" ? "#b1791c" : "#3f7a54");
+    var tr = document.createElement("tr");
+    tr.className = "row";
+    tr.setAttribute("data-no", p.no);
+    tr.style.setProperty("--stripe", stripe);
+
+    var sub = p.cust + " · " + p.stage + (narrow && remain != null ? " · " + (remain < 0 ? "逾期" + (-remain) + "天" : "剩" + remain + "天") : "");
+    var remainCell = remain == null ? "未排期" : (remain < 0 ? "逾期 " + (-remain) + " 天" : "剩 " + remain + " 天");
+    var durCell = dur == null ? "—" : dur + " 天";
+
+    var left =
+      '<td class="c1 stick num" style="width:' + W.c1 + 'px">' + p.no + '</td>' +
+      '<td class="c2 stick" style="width:' + W.c2 + 'px">' + esc(p.name) + '<span class="sub">' + esc(sub) + '</span></td>' +
+      '<td class="c3 stick" style="width:' + W.c3 + 'px">' + (p.pri ? '<span class="pri ' + p.pri + '">' + p.pri + '</span>' : '<span class="pri none">—</span>') + '</td>' +
+      '<td class="c4 stick" style="width:' + W.c4 + 'px"><span class="pill ' + s.key + '">' + esc(s.label) + '</span></td>' +
+      (narrow ? "" :
+        '<td class="c5 stick num" style="width:' + W.c5 + 'px">' + remainCell +
+          '<span class="sub" style="text-align:right">' + durCell + '</span></td>');
+
+    var bar = "";
+    if(start && end){
+      var off = daysBetween(range.from, start);
+      var len = Math.max(dur, 1);
+      if(off < 0){ len = len + off; off = 0; }
+      if(off + len > total) len = total - off;
+      if(len > 0){
+        var late = (remain != null && remain < 0 && (p.prog == null || p.prog < 100));
+        var progW = (p.prog != null) ? Math.round(len*z * Math.min(p.prog,100) / 100) : 0;
+        bar = '<div class="bar' + (late ? ' late' : '') + '" style="left:' + (off*z) + 'px;width:' + Math.max(len*z, 4) + 'px" data-no="' + p.no + '">' +
+              (progW > 0 && !late ? '<div class="prog" style="width:' + progW + 'px"></div>' : '') +
+              '</div>';
+      }
+    } else {
+      bar = '<span class="none">未排期（无计划日期）</span>';
+    }
+    tr.innerHTML = left + '<td class="track" colspan="' + total + '" style="background-image:' + trackBg + '">' + bar + '</td>';
+    tbody.appendChild(tr);
+
+    if(state.selected === p.no){
+      var det = document.createElement("tr");
+      det.className = "detail";
+      det.innerHTML = '<td colspan="' + colCount + '"><div class="dgrid">' + detailFields(p, s) + '</div></td>';
+      tbody.appendChild(det);
+    }
+  });
+
+  el("ganttN").textContent = "共 " + rows.length + " 个项目 / 原表 " + DATA.length + " 条";
+  if(!rows.length){
+    var e2 = document.createElement("tr");
+    e2.className = "row";
+    e2.innerHTML = '<td colspan="' + colCount + '"><div class="empty">当前筛选条件下没有项目</div></td>';
+    tbody.appendChild(e2);
+  }
+}
+
+function detailFields(p, s){
+  var f = [
+    ["项目编号", p.code], ["项目名称", p.name], ["客户", p.cust], ["产品/机型", p.model],
+    ["自研/代工", p.mode], ["业务", p.biz], ["项目经理", p.pm], ["项目阶段", p.stage],
+    ["优先级", p.pri || "—"], ["开始日期", p.start || "—"], ["计划完成日期", p.end || "—"],
+    ["立项会时间", p.kickoff || "—"], ["设计评审时间", p.review || "—"], ["试产准备会时间", p.trial || "—"],
+    ["当前进度", p.prog == null ? "未填" : p.prog + "%"], ["健康状态", s.label],
+    ["主要风险/卡点", p.risk || "—"], ["下一步关键节点", p.next || "—"], ["追办事项", p.follow || "—"],
+    ["追办事项预计完成日期", p.followDate || "—"], ["并行项目/同负责人在途项目", p.parallel || "—"], ["备注", p.note || "—"]
+  ];
+  var html = "";
+  f.forEach(function(kv, i){
+    var wide = (kv[0].indexOf("风险") >= 0 || kv[0].indexOf("下一步") >= 0 || kv[0].indexOf("追办事项") === 0);
+    html += '<div class="f' + (wide ? ' wide' : '') + '"><div class="k">' + kv[0] + '</div><div class="v">' + esc(kv[1]) + '</div></div>';
+  });
+  return html;
+}
+
+/* ===== 全字段明细 ===== */
+var FULL_COLS = [
+  ["序号", 46], ["项目编号", 120], ["项目名称", 190], ["客户", 100], ["产品/机型", 190], ["自研/代工", 78],
+  ["业务", 76], ["项目经理", 80], ["项目阶段", 86], ["优先级", 60], ["开始日期", 96], ["计划完成日期", 100],
+  ["立项会时间", 96], ["设计评审时间", 100], ["试产准备会时间", 104], ["当前进度%", 76], ["健康状态", 88],
+  ["主要风险/卡点", 210], ["下一步关键节点", 210], ["追办事项", 170], ["追办事项预计完成日期", 120],
+  ["并行项目/同负责人在途项目", 130], ["备注", 100]
+];
+function fullWidth(){ return FULL_COLS.reduce(function(a,c){ return a + c[1]; }, 0); }
+function renderFull(rows){
+  var thead = '<tr>' + FULL_COLS.map(function(c, i){
+    var cls = i === 0 ? 'c1' : (i === 1 ? 'c2' : '');
+    var stick = i === 0 ? ' style="left:0;width:' + c[1] + 'px"' : (i === 1 ? ' style="left:' + FULL_COLS[0][1] + 'px;width:' + c[1] + 'px"' : ' style="width:' + c[1] + 'px"');
+    return '<th class="' + cls + '"' + stick + '>' + c[0] + '</th>';
+  }).join("") + '</tr>';
+  var body = rows.map(function(p){
+    var s = statusOf(p, state.auto);
+    var cells = [p.no, p.code, p.name, p.cust, p.model, p.mode, p.biz, p.pm, p.stage, p.pri || "—",
+      p.start || "—", p.end || "—", p.kickoff || "—", p.review || "—", p.trial || "—",
+      p.prog == null ? "—" : p.prog + "%", s.label, p.risk || "—", p.next || "—", p.follow || "—",
+      p.followDate || "—", p.parallel || "—", p.note || "—"];
+    return '<tr class="h-' + s.key + '">' + cells.map(function(v, i){
+      var cls = i === 0 ? 'c1 nowrap' : (i === 1 ? 'c2 nowrap' : (i >= 10 && i <= 14 ? 'nowrap' : ''));
+      var stick = i === 0 ? ' style="left:0;width:' + FULL_COLS[0][1] + 'px"' : (i === 1 ? ' style="left:' + FULL_COLS[0][1] + 'px;width:' + FULL_COLS[1][1] + 'px"' : ' style="width:' + FULL_COLS[i][1] + 'px"');
+      return '<td class="' + cls + '"' + stick + '>' + esc(dash(v)) + '</td>';
+    }).join("") + '</tr>';
+  }).join("");
+  var t = el("fullTable");
+  t.querySelector("thead").innerHTML = thead;
+  t.querySelector("tbody").innerHTML = body;
+  t.style.width = fullWidth() + "px";
+  el("fullN").textContent = "共 " + rows.length + " 条";
+}
+
+/* ===== 汇总 ===== */
+function renderTally(rows){
+  var c = {red:0, yellow:0, green:0, over:0};
+  rows.forEach(function(p){
+    var s = statusOf(p, state.auto);
+    c[s.key] = (c[s.key] || 0) + 1;
+    var end = parseD(p.end);
+    if(end && daysBetween(TODAY, end) < 0 && (p.prog||0) < 100) c.over++;
+  });
+  var items = [
+    ["red", "#9a3b2e", c.red, "红预警"],
+    ["yellow", "#b1791c", c.yellow, "黄关注"],
+    ["green", "#3f7a54", c.green, "绿正常"],
+    ["over", "#8b2016", c.over, "逾期未完成"]
+  ];
+  el("tally").innerHTML = items.map(function(it){
+    return '<div class="t"><span class="dot" style="background:' + it[1] + '"></span>' +
+      '<span class="num">' + it[2] + '</span><span class="cap">' + it[3] + '</span></div>';
+  }).join("") + '<div class="t"><span class="dot" style="background:#77838a"></span><span class="num">' + rows.length + '</span><span class="cap">在当前筛选内</span></div>';
+}
+
+/* ===== 下拉 ===== */
+function fillSelect(id, values, allLabel, current){
+  var sel = el(id);
+  sel.innerHTML = '<option value="">' + allLabel + '</option>' + values.map(function(v){
+    return '<option value="' + esc(v) + '">' + esc(v) + '</option>';
+  }).join("");
+  sel.value = current || "";
+}
+function uniq(key, fallback){
+  var arr = [];
+  DATA.forEach(function(p){
+    var v = key === "pri" ? (p.pri || "无") : p[key];
+    if(v && arr.indexOf(v) < 0) arr.push(v);
+  });
+  return arr.sort(function(a,b){ return a.localeCompare(b, "zh"); });
+}
+
+/* ===== 导出（HTML 版 .xls，带底色） ===== */
+function exportExcel(){
+  var rows = filtered();
+  var head = FULL_COLS.map(function(c){ return c[0]; });
+  var fill = {red:"#F7DFDC", yellow:"#FBF1CE", green:"#DDEFE2"};
+  var body = rows.map(function(p){
+    var s = statusOf(p, state.auto);
+    var vals = [p.no, p.code, p.name, p.cust, p.model, p.mode, p.biz, p.pm, p.stage, p.pri || "",
+      p.start, p.end, p.kickoff, p.review, p.trial, p.prog == null ? "" : p.prog + "%", s.label,
+      p.risk, p.next, p.follow, p.followDate, p.parallel, p.note];
+    return '<tr>' + vals.map(function(v, i){
+      var style = "background:" + fill[s.key] + ";border:1px solid #BFBFBF;padding:4px 6px;vertical-align:middle";
+      if(i === 2 || i === 17 || i === 18) style += ";mso-number-format:'\\@';white-space:normal";
+      if(i === 0 || i === 15) style += ";text-align:center";
+      return '<td style="' + style + '">' + esc(dash(v)) + '</td>';
+    }).join("") + '</tr>';
+  }).join("");
+  var html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8">' +
+    '<style>td{font-family:"Microsoft YaHei";font-size:11pt}th{background:#2B3941;color:#FFFFFF;font-weight:bold;' +
+    'border:1px solid #BFBFBF;padding:6px}table{border-collapse:collapse}</style></head><body>' +
+    '<table><tr>' + head.map(function(h){ return '<th>' + h + '</th>'; }).join("") + '</tr>' + body + '</table></body></html>';
+  var blob = new Blob(["\ufeff" + html], {type:"application/vnd.ms-excel;charset=utf-8"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "全项目部项目跟踪看板_" + fmtISO(TODAY) + ".xls";
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
+/* ===== 提示气泡 ===== */
+function showTip(no, x, y){
+  var p = DATA.filter(function(d){ return d.no === +no; })[0];
+  if(!p) return;
+  var s = statusOf(p, state.auto);
+  var start = parseD(p.start), end = parseD(p.end);
+  var dur = (start && end) ? daysBetween(start, end) + 1 : null;
+  var lines = [
+    ["项目", esc(p.name)],
+    ["客户", esc(p.cust) + " · " + esc(p.stage)],
+    ["起止", (p.start || "—") + " → " + (p.end || "—")],
+    ["工期", dur == null ? "未排期" : dur + " 天"],
+    ["进度", p.prog == null ? "未填" : p.prog + "%"],
+    ["状态", esc(s.label)]
+  ];
+  var tip = el("tip");
+  tip.innerHTML = lines.map(function(l){ return '<div class="rowk"><span>' + l[0] + '</span><b>' + l[1] + '</b></div>'; }).join("");
+  tip.hidden = false;
+  var w = tip.offsetWidth, h = tip.offsetHeight;
+  var left = Math.min(window.innerWidth - w - 12, Math.max(8, x + 14));
+  var top = Math.max(8, y - h - 10);
+  if(top + h > window.innerHeight - 8) top = Math.max(8, y + 18);
+  tip.style.left = left + "px"; tip.style.top = top + "px";
+}
+function hideTip(){ el("tip").hidden = true; }
+
+/* ===== 主渲染 ===== */
+function render(){
+  var rows = filtered();
+  renderGantt(rows);
+  renderFull(rows);
+  renderTally(rows);
+  el("countLbl").textContent = rows.length;
+}
+
+function init(){
+  buildRange();
+  el("todayLbl").textContent = TODAY.getFullYear() + " 年 " + fmtMD(TODAY);
+  el("rangeLbl").textContent = fmtISO(range.from) + " → " + fmtISO(range.to) + "（" + range.days + " 天）";
+  fillSelect("fCust", uniq("cust"), "全部客户", state.cust);
+  fillSelect("fPm", uniq("pm"), "全部项目经理", state.pm);
+  fillSelect("fStage", uniq("stage"), "全部阶段", state.stage);
+  fillSelect("fPri", uniq("pri"), "全部层级", state.pri);
+  fillSelect("fHealth", ["red","yellow","green"], "全部状态", state.health);
+  el("fHealth").querySelectorAll("option").forEach(function(o){
+    if(o.value === "red") o.textContent = "红预警";
+    if(o.value === "yellow") o.textContent = "黄关注";
+    if(o.value === "green") o.textContent = "绿正常";
+  });
+  render();
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ scrollToToday(false); updateViewHint(); }); });
+}
+
+function scrollToToday(smooth){
+  var narrow = window.matchMedia("(max-width:900px)").matches;
+  var leftBase = narrow ? 314 : 502;
+  var idx = daysBetween(range.from, TODAY);
+  if(idx < 0 || idx > range.days) return;
+  var sc = el("scroller");
+  var target = Math.max(0, idx*state.zoom - (sc.clientWidth - leftBase)/2);
+  sc.scrollTo({left: target, behavior: smooth ? "smooth" : "auto"});
+}
+
+/* ===== 事件 ===== */
+el("fCust").addEventListener("change", function(e){ state.cust = e.target.value; render(); });
+el("fPm").addEventListener("change", function(e){ state.pm = e.target.value; render(); });
+el("fStage").addEventListener("change", function(e){ state.stage = e.target.value; render(); });
+el("fPri").addEventListener("change", function(e){ state.pri = e.target.value; render(); });
+el("fHealth").addEventListener("change", function(e){ state.health = e.target.value; render(); });
+el("q").addEventListener("input", function(e){ state.q = e.target.value; render(); });
+el("zoomSel").addEventListener("change", function(e){ state.zoom = +e.target.value; render(); });
+el("autoHealth").addEventListener("change", function(e){ state.auto = e.target.checked; render(); });
+el("todayBtn").addEventListener("click", function(){
+  state.selected = null; render(); scrollToToday(true);
+});
+el("exportBtn").addEventListener("click", exportExcel);
+
+el("tbody").addEventListener("click", function(e){
+  var bar = e.target.closest(".bar");
+  if(bar){ e.stopPropagation(); return; }
+  var tr = e.target.closest("tr.row");
+  if(!tr) return;
+  var no = +tr.getAttribute("data-no");
+  state.selected = (state.selected === no) ? null : no;
+  render();
+});
+el("tbody").addEventListener("mousemove", function(e){
+  var bar = e.target.closest(".bar");
+  if(bar) showTip(bar.getAttribute("data-no"), e.clientX, e.clientY);
+  else hideTip();
+});
+el("tbody").addEventListener("mouseleave", hideTip);
+el("scroller").addEventListener("scroll", function(){
+  hideTip(); updateViewHint();
+});
+
+function updateViewHint(){
+  var narrow = window.matchMedia("(max-width:900px)").matches;
+  var leftBase = narrow ? 314 : 502;
+  var sc = el("scroller");
+  if(!range.days) return;
+  var idx = Math.max(0, Math.min(range.days - 1, Math.round(sc.scrollLeft / state.zoom)));
+  var d = addDays(range.from, idx);
+  var span = Math.min(range.days - 1, idx + Math.round((sc.clientWidth - leftBase) / state.zoom));
+  var d2 = addDays(range.from, span);
+  var ref = el("viewHint");
+  if(!ref) return;
+  ref.textContent = "视野 " + (d.getMonth()+1) + "月" + d.getDate() + "日 → " + (d2.getMonth()+1) + "月" + d2.getDate() + "日 · 点行展开全部字段";
+}
+
+var lastNarrow = window.matchMedia("(max-width:900px)").matches;
+window.addEventListener("resize", function(){
+  var n = window.matchMedia("(max-width:900px)").matches;
+  if(n !== lastNarrow){ lastNarrow = n; render(); }
+});
+
+init();
+</script>
+</body>
+</html>
