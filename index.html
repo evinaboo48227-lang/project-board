@@ -772,6 +772,13 @@ function keyOf(p){
   return p.uid;
 }
 function ensureUids(){ DATA.forEach(keyOf); }
+function sortByNo(){
+  DATA.sort(function(a, b){
+    var x = (a.no == null ? 1e9 : +a.no), y = (b.no == null ? 1e9 : +b.no);
+    if(x !== y) return x - y;
+    return String(a.code || "") < String(b.code || "") ? -1 : 1;
+  });
+}
 
 /* ===== 本地缓存（离线兜底） ===== */
 var KEY = "pt-board-data-v1";
@@ -793,6 +800,7 @@ function loadData(){
     }
   }catch(e){}
   ensureUids();
+  sortByNo();
   updateEditHint();
   cloudSync(true);
 }
@@ -808,6 +816,7 @@ function cloudSync(initial){
     }
     DATA = rows.map(function(r){ return r.payload; });
     ensureUids();
+    sortByNo();
     saveLocal();
     if(!initial){ state.cust = state.pm = state.stage = state.pri = state.year = state.month = ""; }
     refreshSelects();
